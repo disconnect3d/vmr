@@ -52,7 +52,7 @@ get_vmx = lambda dirname: os.path.join(dirname, next(j for j in os.listdir(os.pa
 all_vms = {
     i.rstrip('.vmwarevm'): get_vmx(i) for i in os.listdir(VMWARE_VMS_DIR) if '.vmwarevm' in i
 }
-max_len = max(map(len, all_vms.keys()))
+max_len = max(max(map(len, all_vms.keys())), 6)
 
 
 def main():
@@ -99,13 +99,16 @@ def list_vms():
     running_vms = get_running_vms()
     net_cfg = get_vms_netcfg()
 
-    print(f'VMWARE_VMS_DIR="{VMWARE_VMS_DIR}"')
+    print(f'{c.HEADER}Listing VMs from VMWARE_VMS_DIR="{VMWARE_VMS_DIR}":{c.ENDC}')
     for vm, path in all_vms.items():
         status = vm in running_vms
         color = c.OKGREEN if status else c.FAIL
         
         net = net_cfg.get(vm, 'unknown/dhcp')
-        print(f'{color}{vm:{max_len}s} : {path} (net: {net})')
+        print(f'{color}{vm:{max_len}s} : {path}{c.ENDC}')
+        print(f'{" "*max_len}   mac: {net["mac"]}')
+        print(f'{" "*max_len}    ip: {net["ip"]}')
+        print()
 
 
 def vmrun(*args):
