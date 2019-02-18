@@ -47,10 +47,10 @@ if not os.path.exists(VMWARE_DHCPD_PATH):
 if failed:
     sys.exit(-1)
 
-get_vmx = lambda dirname: os.path.join(dirname, next(j for j in os.listdir(os.path.join(VMWARE_VMS_DIR, dirname)) if j.endswith('vmx')))
+get_vmx_path = lambda dirname: os.path.join(dirname, next(j for j in os.listdir(os.path.join(VMWARE_VMS_DIR, dirname)) if j.endswith('vmx')))
 
 all_vms = {
-    i.rstrip('.vmwarevm'): get_vmx(i) for i in os.listdir(VMWARE_VMS_DIR) if '.vmwarevm' in i
+    i.rstrip('.vmwarevm'): get_vmx_path(i) for i in os.listdir(VMWARE_VMS_DIR) if '.vmwarevm' in i
 }
 max_len = max(max(map(len, all_vms.keys())), 6)
 
@@ -64,7 +64,7 @@ def main():
         vmx = all_vms.get(args['<vm>'])
 
         if not vmx:
-            print(f"{c.FAIL}Can't find vmx for vm '{args['<vm>']}'{c.ENDC}")
+            print(f"{c.FAIL}Can't find vm '{args['<vm>']}' in VMWARE_VMS_DIR=\"{VMWARE_VMS_DIR}\" {c.ENDC}")
             print(f'all_vms={all_vms}')
             sys.exit(-1)
 
@@ -78,14 +78,20 @@ def main():
     elif args['start']:
         out = vmrun('start', get_vmx(), 'gui' if args['--gui'] else 'nogui')
 
-    elif args['pause']:
-        out = vmrun('pause', get_vmx(), softhard)
+    elif args['stop']:
+        out = vmrun('stop', get_vmx(), softhard)
 
-    elif args['unpause']:
-        out = vmrun('unpause', get_vmx(), softhard)
+    elif args['reset']:
+        out = vmrun('pause', get_vmx(), softhard)
 
     elif args['suspend']:
         out = vmrun('suspend', get_vmx(), softhard)
+
+    elif args['pause']:
+        out = vmrun('pause', get_vmx())
+
+    elif args['unpause']:
+        out = vmrun('unpause', get_vmx())
 
     elif args['staticip']:
 
