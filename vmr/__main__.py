@@ -102,7 +102,7 @@ def main():
 
 
 def list_vms():
-    running_vms = get_running_vms()
+    running_vms = get_running_vms_vmx()
     net_cfg = get_vms_netcfg()
 
     print(f'{c.HEADER}Listing VMs from VMWARE_VMS_DIR="{VMWARE_VMS_DIR}":{c.ENDC}')
@@ -118,10 +118,10 @@ def list_vms():
 
 
 def vmrun(*args):
-    return subprocess.check_output([VMWARE_VMRUN_PATH, *args], stderr=subprocess.STDOUT)
+    return subprocess.check_output([VMWARE_VMRUN_PATH, *args], stderr=subprocess.STDOUT).decode('ascii')
 
-def get_running_vms():
-    name = lambda path: path.decode('ascii').rsplit(os.path.sep)[-1].rstrip('vmx')
+def get_running_vms_vmx():
+    name = lambda path: path.rsplit(os.path.sep, 2)[-2].rstrip('.vmwarevm')
     return {
         name(i): i for i in vmrun('list').splitlines()[1:]
     }
