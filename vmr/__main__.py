@@ -8,7 +8,7 @@ Usage:
   vmr suspend [--hard] <vm>
   vmr pause <vm>
   vmr unpause <vm>
-  vmr staticip
+  vmr gennetcfg <vm>
   vmr -h | --help
 
 Options:
@@ -25,6 +25,8 @@ from pydhcpdparser import parser
 VMWARE_VMS_DIR = os.getenv('VMWARE_VMS_DIR', '')
 VMWARE_VMRUN_PATH = os.getenv('VMWARE_VMRUN_PATH', 'vmrun')
 VMWARE_DHCPD_PATH = os.getenv('VMWARE_DHCPD_PATH', '/Library/Preferences/VMware Fusion/vmnet8/dhcpd.conf')
+
+SSH_CONFIG_PATH = os.path.join(os.getenv('HOME'), '.ssh/config')
 
 failed = False
 
@@ -44,8 +46,13 @@ if not os.path.exists(VMWARE_DHCPD_PATH):
 if failed:
     sys.exit(-1)
 
-get_vmx_path = lambda dirname: os.path.join(dirname, next(
-    j for j in os.listdir(os.path.join(VMWARE_VMS_DIR, dirname)) if j.endswith('vmx')))
+
+def get_vmx_path(dirname):
+    return os.path.join(
+        dirname,
+        next(j for j in os.listdir(os.path.join(VMWARE_VMS_DIR, dirname)) if j.endswith('vmx'))
+    )
+
 
 all_vms = {
     i.rstrip('.vmwarevm'): get_vmx_path(i) for i in os.listdir(VMWARE_VMS_DIR) if '.vmwarevm' in i
@@ -91,7 +98,8 @@ def main():
     elif args['unpause']:
         out = vmrun('unpause', get_vmx())
 
-    elif args['staticip']:
+    elif args['gennetcfg']:
+        gen_network_cfgs(args['<vm>'])
         print(f'You can set static ip for your vms in "{VMWARE_DHCPD_PATH}"')
 
     if out:
@@ -114,12 +122,35 @@ def list_vms():
         print()
 
 
-def vmrun(*args):
-    return subprocess.check_output([VMWARE_VMRUN_PATH, *args], stderr=subprocess.STDOUT).decode('ascii')
+def gen_network_cfgs(vm):
+    net_cfg = get_vms_netcfg()[vm]
+
+    if net_cfg['ip'] == '<dhcp>':
+        print(f'{c.OKGREEN}Generating "{VMWARE_DHCPD_PATH}" config{c.ENDC}')
+        print(f'{c.WARNING}Please put the lines below in the ^ file{c.ENDC}')
+        print()
+        print(f'host {vm} {{')
+        print(f'    hardware ethernet {net_cfg["mac"]};')
+        print(f'    fixed-address <PUT-IP-HERE>;')
+        print('}')
+        print()
+    else:
+        print(f'{c.OKGREEN}"{VMWARE_DHCPD_PATH}" entry not generated: vm has static ip.')
+
+    print(f'{c.WARNING}Generating ~/.ssh/config entry (note: it might already be there!){c.ENDC}')
+    print(f'''
+Host {vm}
+  HostName {net_cfg["ip"]}
+  Port 22
+  User dc
+  IdentityFile ~/.ssh/id_rsa
+''')
 
 
 def get_running_vms_vmx():
-    name = lambda path: path.rsplit(os.path.sep, 2)[-2].rstrip('.vmwarevm')
+    def name(path):
+        return path.rsplit(os.path.sep, 2)[-2].rstrip('.vmwarevm')
+
     return {
         name(i): i for i in vmrun('list').splitlines()[1:]
     }
@@ -127,7 +158,10 @@ def get_running_vms_vmx():
 
 def get_vms_netcfg():
     """
-    Get VMs network config as a dict of vmname:  {'mac': ..., 'ip': ...}
+    Get VMs network config as {
+        'vmname':  {'mac': ..., 'ip': ...},
+        ...
+    }
 
     Parses vmware's dhcpd.conf file and VMX file for each vm.
     """
@@ -168,14 +202,18 @@ def get_vms_netcfg():
             #
             # Let's see if it is sth generic e.g. a dhcp server like:
             # host = 'vmnetX' (X = number)
-            # netcfg = {'hardware': {'ethernet': <MAC>}, 'fixed-address': <IP>, 'option': {'domain-name-servers': '0.0.0.0', 'domain-name': '""', 'routers': '0.0.0.0'}}
+            # netcfg = {
+            #    'hardware': {'ethernet': <MAC>},
+            #    'fixed-address': <IP>,
+            #    'option': {'domain-name-servers': '0.0.0.0', 'domain-name': '""', 'routers': '0.0.0.0'}
+            # }
             #
             # if so, let's ignore it; otherwise warn about the entry
             if 'option' not in netcfg or 'domain-name-servers' not in netcfg['option']:
                 print(
-                    c.WARNING + \
+                    c.WARNING +
                     f"WARNING: the dhcpd conf has an entry of {host} with cfg {netcfg} "
-                    "and we couldn't find a corresponding network interface in vms vmx files" + \
+                    "and we couldn't find a corresponding network interface in vms vmx files" +
                     c.ENDC
                 )
             continue
@@ -184,6 +222,10 @@ def get_vms_netcfg():
         vms_net_info[vm]['ip'] = netcfg.get('fixed-address', '<missing-fixed-address-key-in-dhcpd>')
 
     return vms_net_info
+
+
+def vmrun(*args):
+    return subprocess.check_output([VMWARE_VMRUN_PATH, *args], stderr=subprocess.STDOUT).decode('ascii')
 
 
 def read_vmx(vm):
