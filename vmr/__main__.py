@@ -14,16 +14,13 @@ Usage:
 Options:
   -h --help     Show this screen.
 """
-import subprocess
-import argparse
-import os
-import sys
 import ast
+import os
+import subprocess
+import sys
 
 from docopt import docopt
-from prettytable import PrettyTable, PLAIN_COLUMNS
 from pydhcpdparser import parser
-from pprint import pprint
 
 VMWARE_VMS_DIR = os.getenv('VMWARE_VMS_DIR', '')
 VMWARE_VMRUN_PATH = os.getenv('VMWARE_VMRUN_PATH', 'vmrun')
@@ -47,7 +44,8 @@ if not os.path.exists(VMWARE_DHCPD_PATH):
 if failed:
     sys.exit(-1)
 
-get_vmx_path = lambda dirname: os.path.join(dirname, next(j for j in os.listdir(os.path.join(VMWARE_VMS_DIR, dirname)) if j.endswith('vmx')))
+get_vmx_path = lambda dirname: os.path.join(dirname, next(
+    j for j in os.listdir(os.path.join(VMWARE_VMS_DIR, dirname)) if j.endswith('vmx')))
 
 all_vms = {
     i.rstrip('.vmwarevm'): get_vmx_path(i) for i in os.listdir(VMWARE_VMS_DIR) if '.vmwarevm' in i
@@ -94,8 +92,7 @@ def main():
         out = vmrun('unpause', get_vmx())
 
     elif args['staticip']:
-
-        print(f'You can set static ip for your vms in "{dhcpd_path}"')
+        print(f'You can set static ip for your vms in "{VMWARE_DHCPD_PATH}"')
 
     if out:
         print(out)
@@ -109,7 +106,7 @@ def list_vms():
     for vm, path in all_vms.items():
         status = vm in running_vms
         color = c.OKGREEN if status else c.FAIL
-        
+
         net = net_cfg.get(vm, 'unknown/dhcp')
         print(f'{color}{vm:{max_len}s} : {path}{c.ENDC}')
         print(f'{" "*max_len}   mac: {net["mac"]}')
@@ -120,11 +117,13 @@ def list_vms():
 def vmrun(*args):
     return subprocess.check_output([VMWARE_VMRUN_PATH, *args], stderr=subprocess.STDOUT).decode('ascii')
 
+
 def get_running_vms_vmx():
     name = lambda path: path.rsplit(os.path.sep, 2)[-2].rstrip('.vmwarevm')
     return {
         name(i): i for i in vmrun('list').splitlines()[1:]
     }
+
 
 def get_vms_netcfg():
     """
@@ -144,7 +143,7 @@ def get_vms_netcfg():
     for h in hosts:
         v = hosts.pop(h)
         hosts[h.rstrip()] = v
-    
+
     # Read VMX files for all vms
     cfgs = {vm: read_vmx(vm) for vm in all_vms}
 
@@ -192,11 +191,12 @@ def read_vmx(vm):
     with open(os.path.join(VMWARE_VMS_DIR, all_vms[vm])) as f:
         for line in f:
             key, value = line.split(' = ')
-            
+
             # Unquote the string...
             data[key] = ast.literal_eval(value.rstrip('\n'))
 
     return data
+
 
 class c:
     HEADER = '\033[95m'
