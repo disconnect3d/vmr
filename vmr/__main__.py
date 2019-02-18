@@ -139,14 +139,12 @@ def get_vms_netcfg():
     # Read VMX files for all vms
     cfgs = {vm: read_vmx(vm) for vm in all_vms}
 
-    mac2vms = {}
+    vms_net_info = {}
     for vm, cfg in cfgs.items():
         for key, val in cfg.items():
             if key.startswith('ethernet') and key.endswith('generatedAddress'):
-                mac2vms[val] = vm
+                vms_net_info[vm] = {'mac': val, 'ip': '<dhcp>'}
 
-
-    vms_net_info = {}
     for host, netcfg in hosts.items():
         try:
             mac = netcfg['hardware']['ethernet']
@@ -154,8 +152,8 @@ def get_vms_netcfg():
             continue
 
         try:
-            vm = mac2vms[mac]
-        except KeyError:
+            vm = next(k for k, v in vms_net_info.items() if v['mac'] == mac)
+        except StopIteration:
             # In this case the dhcpd.conf has an entry with mac which
             # we don't have a name for in vmx files
             # (there is no vm with corresponding network interface)
@@ -174,10 +172,8 @@ def get_vms_netcfg():
                 )
             continue
 
-        # '<unknown>' should probably not happen?
-        ip = netcfg.get('fixed-address', '<unknown>')
-
-        vms_net_info[vm] = {'mac':  mac, 'ip':  ip}
+        # The default value should probably not happen?
+        vms_net_info[vm]['ip'] = netcfg.get('fixed-address', '<missing-fixed-address-key-in-dhcpd>')
 
     return vms_net_info
 
