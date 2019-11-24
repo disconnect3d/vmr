@@ -7,8 +7,6 @@ The motivation behind creating it was that I used to create aliases around `vmru
 
 Clone the repo and run `python3 setup.py install`.
 
-**NOTE that it requires custom pydhcpdparser installed - https://github.com/disconnect3d/pydhcpdparser - since the upstream hasn't made a release with Py3 support yet**
-
 ## Usage
 
 To use vmr two environment variables must be set:
