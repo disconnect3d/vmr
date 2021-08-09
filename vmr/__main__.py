@@ -174,7 +174,7 @@ def get_vms_netcfg():
         return {}
 
     # Workaround for https://github.com/jay-g-mehta/pydhcpdparser/issues/4
-    for h in hosts:
+    for h in list(hosts.keys()):
         v = hosts.pop(h)
         hosts[h.rstrip()] = v
 
